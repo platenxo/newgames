@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Wormzilla.io – Snake Game</title>
+    <style>
+        /* ── RESET & BASE ── */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0b0e1a;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            border-radius: 20px;
+            box-shadow: 0 0 60px rgba(46, 233, 255, 0.15), inset 0 0 60px rgba(46, 233, 255, 0.03);
+            background: #111627;
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            image-rendering: crisp-edges;
+        }
+
+        /* ── HUD ── */
+        #hud {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 32px;
+            align-items: center;
+            background: rgba(11, 14, 26, 0.75);
+            backdrop-filter: blur(12px);
+            padding: 10px 28px;
+            border-radius: 60px;
+            border: 1px solid rgba(46, 233, 255, 0.20);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            z-index: 10;
+            pointer-events: none;
+            font-weight: 600;
+            font-size: 15px;
+            color: #b0c7e8;
+            letter-spacing: 0.3px;
+        }
+        #hud span {
+            color: #fff;
+            font-weight: 700;
+        }
+        #hud .score-val {
+            color: #2ee9ff;
+        }
+        #hud .len-val {
+            color: #9cff68;
+        }
+        #hud .divider {
+            color: rgba(255, 255, 255, 0.12);
+        }
+        #hud .food-count {
+            color: #ffb347;
+        }
+
+        /* ── GAME OVER ── */
+        #gameOver {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            animation: fadeIn 0.35s ease;
+        }
+        #gameOver.show {
+            display: flex;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .go-card {
+            background: #141b2d;
+            border-radius: 32px;
+            padding: 48px 56px 40px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            border: 1px solid rgba(46, 233, 255, 0.15);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.8);
+        }
+        .go-card h2 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+        .go-card h2 em {
+            color: #2ee9ff;
+            font-style: normal;
+        }
+        .go-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 24px 0 32px;
+        }
+        .go-stat {
+            text-align: center;
+        }
+        .go-stat .label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6a7fa0;
+        }
+        .go-stat .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 4px;
+        }
+        .go-stat .value.gold {
+            color: #ffb347;
+        }
+        .go-stat .value.green {
+            color: #9cff68;
+        }
+        .go-stat .value.blue {
+            color: #2ee9ff;
+        }
+
+        .go-btn {
+            background: linear-gradient(135deg, #2ee9ff, #00b6ff);
+            border: none;
+            color: #0b0e1a;
+            font-weight: 700;
+            font-size: 16px;
+            padding: 14px 40px;
+            border-radius: 60px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 4px 24px rgba(46, 233, 255, 0.30);
+            letter-spacing: 0.3px;
+            width: 100%;
+        }
+        .go-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 40px rgba(46, 233, 255, 0.45);
+        }
+        .go-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* ── MOBILE CONTROLS ── */
+        #touchPad {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 40% 40%, rgba(46, 233, 255, 0.10), rgba(0, 0, 0, 0.50));
+            border: 1.5px solid rgba(46, 233, 255, 0.15);
+            display: none;
+            z-index: 5;
+            touch-action: none;
+            pointer-events: none;
+        }
+        #touchPad.active {
+            pointer-events: auto;
+        }
+        #touchPad .knob {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 40% 40%, rgba(46, 233, 255, 0.25), rgba(46, 233, 255, 0.05));
+            border: 1.5px solid rgba(46, 233, 255, 0.25);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            transition: box-shadow 0.2s;
+        }
+        #touchPad .knob.active {
+            box-shadow: 0 0 40px rgba(46, 233, 255, 0.15);
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 640px) {
+            #hud {
+                font-size: 12px;
+                gap: 16px;
+                padding: 8px 16px;
+                top: 10px;
+                border-radius: 40px;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .go-card {
+                padding: 32px 24px 28px;
+            }
+            .go-card h2 {
+                font-size: 22px;
+            }
+            .go-stats {
+                gap: 24px;
+            }
+            .go-stat .value {
+                font-size: 26px;
+            }
+            #touchPad {
+                display: block;
+                width: 120px;
+                height: 120px;
+                bottom: 28px;
+            }
+            #touchPad .knob {
+                width: 44px;
+                height: 44px;
+            }
+        }
+        @media (pointer: coarse) {
+            #touchPad {
+                display: block;
+            }
+        }
+        @media (pointer: fine) {
+            #touchPad {
+                display: none !important;
+            }
+        }
+
+        /* ── UTILITY ── */
+        .hidden {
+            display: none !important;
+        }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2ee9ff44;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div>🏆 <span class="score-val" id="scoreDisplay">0</span></div>
+        <span class="divider">|</span>
+        <div>📏 <span class="len-val" id="lengthDisplay">3</span></div>
+        <span class="divider">|</span>
+        <div>🍎 <span class="food-count" id="foodCount">0</span></div>
+    </div>
+
+    <!-- CANVAS -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- TOUCH PAD -->
+    <div id="touchPad">
+        <div class="knob" id="touchKnob"></div>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="gameOver">
+        <div class="go-card">
+            <h2>💀 <em>Worm</em> Down</h2>
+            <div class="go-stats">
+                <div class="go-stat">
+                    <div class="label">Score</div>
+                    <div class="value gold" id="finalScore">0</div>
+                </div>
+                <div class="go-stat">
+                    <div class="label">Length</div>
+                    <div class="value green" id="finalLength">3</div>
+                </div>
+                <div class="go-stat">
+                    <div class="label">Eaten</div>
+                    <div class="value blue" id="finalEaten">0</div>
+                </div>
+            </div>
+            <button class="go-btn" id="restartBtn">▶ Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════
+        //  WORMZILLA.IO – SINGLE-PLAYER SNAKE GAME
+        //  Smooth, free‑roaming worm with mouse / keyboard
+        // ═══════════════════════════════════════════════════
+
+        (() => {
+            'use strict';
+
+            // ─── Canvas ───
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            let W, H;
+
+            function resize() {
+                const dpr = window.devicePixelRatio || 1;
+                const rect = canvas.getBoundingClientRect();
+                W = rect.width * dpr;
+                H = rect.height * dpr;
+                canvas.width = W;
+                canvas.height = H;
+                ctx.scale(dpr, dpr);
+                // store logical size for game logic
+                canvas._w = rect.width;
+                canvas._h = rect.height;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            function logicalW() { return canvas._w || canvas.width; }
+
+            function logicalH() { return canvas._h || canvas.height; }
+
+            // ─── DOM refs ───
+            const scoreEl = document.getElementById('scoreDisplay');
+            const lengthEl = document.getElementById('lengthDisplay');
+            const foodCountEl = document.getElementById('foodCount');
+            const gameOverEl = document.getElementById('gameOver');
+            const finalScore = document.getElementById('finalScore');
+            const finalLength = document.getElementById('finalLength');
+            const finalEaten = document.getElementById('finalEaten');
+            const restartBtn = document.getElementById('restartBtn');
+
+            // ─── Touch Pad ───
+            const touchPad = document.getElementById('touchPad');
+            const touchKnob = document.getElementById('touchKnob');
+            let touchActive = false;
+            let touchDir = { x: 0, y: 0 };
+
+            // ─── Game State ───
+            const STATE = {
+                MENU: 0,
+                PLAYING: 1,
+                GAMEOVER: 2
+            };
+            let state = STATE.PLAYING;
+
+            // ─── Worm ───
+            const MAX_SEGMENTS = 800;
+            let worm = [];
+            let wormLength = 3;
+            let direction = { x: 1, y: 0 };
+            let targetDir = { x: 1, y: 0 };
+            let speed = 220; // pixels per second
+            const BASE_SPEED = 220;
+            const SEGMENT_DIST = 8;
+
+            // ─── Food ───
+            let foods = [];
+            const MAX_FOOD = 45;
+            let totalEaten = 0;
+            let foodTypes = [
+                { color: '#ff6b6b', glow: '#ff6b6b44', points: 10, size: 10, label: '🍎' },
+                { color: '#ffb347', glow: '#ffb34744', points: 15, size: 12, label: '⭐' },
+                { color: '#9cff68', glow: '#9cff6844', points: 20, size: 11, label: '🍏' },
+                { color: '#2ee9ff', glow: '#2ee9ff44', points: 25, size: 13, label: '💎' },
+                { color: '#ff6bff', glow: '#ff6bff44', points: 30, size: 12, label: '🌸' },
+            ];
+
+            // ─── Input ───
+            let keys = {};
+            let mouseX = 0,
+                mouseY = 0;
+            let mouseInside = false;
+
+            // ─── Time ───
+            let lastTime = 0;
+            let accumulator = 0;
+            const STEP = 1 / 60;
+
+            // ─── Init ───
+            function initGame() {
+                const cx = logicalW() / 2;
+                const cy = logicalH() / 2;
+                worm = [];
+                for (let i = 0; i < 3; i++) {
+                    worm.push({ x: cx - i * SEGMENT_DIST, y: cy });
+                }
+                wormLength = 3;
+                direction = { x: 1, y: 0 };
+                targetDir = { x: 1, y: 0 };
+                speed = BASE_SPEED;
+                foods = [];
+                totalEaten = 0;
+                state = STATE.PLAYING;
+                gameOverEl.classList.remove('show');
+                spawnFood(MAX_FOOD);
+                updateHUD();
+            }
+
+            // ─── Food Spawning ───
+            function spawnFood(count) {
+                const w = logicalW(),
+                    h = logicalH();
+                const pad = 30;
+                for (let i = 0; i < count && foods.length < MAX_FOOD * 1.5; i++) {
+                    const type = foodTypes[Math.floor(Math.random() * foodTypes.length)];
+                    const x = pad + Math.random() * (w - pad * 2);
+                    const y = pad + Math.random() * (h - pad * 2);
+                    // avoid spawning on worm
+                    let tooClose = false;
+                    for (const seg of worm) {
+                        const dx = seg.x - x,
+                            dy = seg.y - y;
+                        if (dx * dx + dy * dy < 900) { tooClose = true; break; }
+                    }
+                    if (tooClose) { i--; continue; }
+                    foods.push({
+                        x,
+                        y,
+                        type,
+                        radius: type.size,
+                        bob: Math.random() * Math.PI * 2,
+                        alive: true
+                    });
+                }
+            }
+
+            // ─── HUD ───
+            function updateHUD() {
+                scoreEl.textContent = totalEaten;
+                lengthEl.textContent = wormLength;
+                foodCountEl.textContent = foods.length;
+            }
+
+            // ─── Game Logic ───
+            function update(dt) {
+                if (state !== STATE.PLAYING) return;
+
+                const w = logicalW(),
+                    h = logicalH();
+
+                // ── Direction ──
+                let dx = 0,
+                    dy = 0;
+
+                // Keyboard
+                if (keys['ArrowUp'] || keys['KeyW']) dy = -1;
+                else if (keys['ArrowDown'] || keys['KeyS']) dy = 1;
+                else if (keys['ArrowLeft'] || keys['KeyA']) dx = -1;
+                else if (keys['ArrowRight'] || keys['KeyD']) dx = 1;
+
+                // Mouse (only if no keyboard input)
+                if (dx === 0 && dy === 0 && mouseInside) {
+                    const cx = worm[0].x,
+                        cy = worm[0].y;
+                    const mx = mouseX,
+                        my = mouseY;
+                    const dist = Math.hypot(mx - cx, my - cy);
+                    if (dist > 8) {
+                        dx = (mx - cx) / dist;
+                        dy = (my - cy) / dist;
+                    }
+                }
+
+                // Touch
+                if (dx === 0 && dy === 0 && touchActive) {
+                    const mag = Math.hypot(touchDir.x, touchDir.y);
+                    if (mag > 0.1) {
+                        dx = touchDir.x / mag;
+                        dy = touchDir.y / mag;
+                    }
+                }
+
+                // Fallback
+                if (dx === 0 && dy === 0) {
+                    dx = direction.x;
+                    dy = direction.y;
+                }
+
+                // Smooth direction change
+                const angle = Math.atan2(dy, dx);
+                const curAngle = Math.atan2(direction.y, direction.x);
+                let diff = angle - curAngle;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                const maxTurn = 3.8 * dt;
+                const newAngle = curAngle + Math.max(-maxTurn, Math.min(maxTurn, diff));
+                direction.x = Math.cos(newAngle);
+                direction.y = Math.sin(newAngle);
+                const mag = Math.hypot(direction.x, direction.y);
+                if (mag > 0.001) { direction.x /= mag;
+                    direction.y /= mag; }
+
+                // ── Move head ──
+                const head = worm[0];
+                const moveSpeed = speed * dt;
+                head.x += direction.x * moveSpeed;
+                head.y += direction.y * moveSpeed;
+
+                // Wrap around walls
+                const margin = 20;
+                if (head.x < -margin) head.x = w + margin;
+                if (head.x > w + margin) head.x = -margin;
+                if (head.y < -margin) head.y = h + margin;
+                if (head.y > h + margin) head.y = -margin;
+
+                // ── Body follows ──
+                for (let i = worm.length - 1; i > 0; i--) {
+                    const prev = worm[i - 1];
+                    const curr = worm[i];
+                    const dx2 = prev.x - curr.x;
+                    const dy2 = prev.y - curr.y;
+                    const dist2 = Math.hypot(dx2, dy2);
+                    if (dist2 > SEGMENT_DIST) {
+                        const ratio = (dist2 - SEGMENT_DIST) / dist2 * 0.6;
+                        curr.x += dx2 * ratio;
+                        curr.y += dy2 * ratio;
+                    }
+                }
+
+                // ── Self-collision ──
+                for (let i = 4; i < worm.length; i++) {
+                    const dx2 = head.x - worm[i].x;
+                    const dy2 = head.y - worm[i].y;
+                    if (dx2 * dx2 + dy2 * dy2 < 100) {
+                        gameOver();
+                        return;
+                    }
+                }
+
+                // ── Food collisions ──
+                const eatRadius = 22;
+                for (let i = foods.length - 1; i >= 0; i--) {
+                    const f = foods[i];
+                    const dx2 = head.x - f.x;
+                    const dy2 = head.y - f.y;
+                    if (dx2 * dx2 + dy2 * dy2 < (eatRadius + f.radius) ** 2) {
+                        // Eat!
+                        totalEaten += f.type.points;
+                        // Grow worm
+                        const last = worm[worm.length - 1];
+                        for (let g = 0; g < 2; g++) {
+                            worm.push({ x: last.x + (Math.random() - 0.5) * 4, y: last.y + (Math.random() - 0.5) * 4 });
+                        }
+                        wormLength = worm.length;
+                        foods.splice(i, 1);
+                        // Spawn replacement
+                        spawnFood(1);
+                        updateHUD();
+                        // Speed up slightly
+                        speed = Math.min(BASE_SPEED + wormLength * 1.2, 520);
+                        // Spawn particles later (visual)
+                    }
+                }
+
+                // ── Keep food stocked ──
+                while (foods.length < MAX_FOOD) {
+                    spawnFood(1);
+                }
+
+                // ── Food animation ──
+                const time = performance.now() / 1000;
+                for (const f of foods) {
+                    f.bob += dt * 2;
+                }
+
+                updateHUD();
+            }
+
+            // ─── Game Over ───
+            function gameOver() {
+                state = STATE.GAMEOVER;
+                finalScore.textContent = totalEaten;
+                finalLength.textContent = wormLength;
+                finalEaten.textContent = foods.length;
+                gameOverEl.classList.add('show');
+            }
+
+            // ─── Rendering ───
+            function render() {
+                const w = logicalW(),
+                    h = logicalH();
+                ctx.clearRect(0, 0, w, h);
+
+                // ── Background grid ──
+                ctx.save();
+                ctx.strokeStyle = 'rgba(46, 233, 255, 0.04)';
+                ctx.lineWidth = 1;
+                const gridSize = 60;
+                for (let x = gridSize; x < w; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                    ctx.stroke();
+                }
+                for (let y = gridSize; y < h; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                // ── Food ──
+                const time = performance.now() / 1000;
+                for (const f of foods) {
+                    const r = f.radius + Math.sin(f.bob) * 1.5;
+                    const grd = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r * 2.2);
+                    grd.addColorStop(0, f.type.color);
+                    grd.addColorStop(0.5, f.type.color + 'cc');
+                    grd.addColorStop(1, f.type.color + '00');
+                    ctx.shadowColor = f.type.glow;
+                    ctx.shadowBlur = 24;
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+                    ctx.fillStyle = grd;
+                    ctx.fill();
+                    // Inner highlight
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath();
+                    ctx.arc(f.x - r * 0.2, f.y - r * 0.2, r * 0.3, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+                    ctx.fill();
+                    // Glow ring
+                    ctx.shadowBlur = 40;
+                    ctx.shadowColor = f.type.glow;
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, r + 2, 0, Math.PI * 2);
+                    ctx.strokeStyle = f.type.color + '55';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // ── Worm ──
+                if (worm.length < 2) return;
+
+                // Body segments (back to front)
+                for (let i = worm.length - 1; i >= 0; i--) {
+                    const seg = worm[i];
+                    const t = i / worm.length;
+                    const hue = 190 + t * 40;
+                    const lightness = 50 + (1 - t) * 30;
+                    const color = `hsl(${hue}, 90%, ${lightness}%)`;
+                    const radius = 10 - t * 4;
+
+                    // Glow
+                    ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.25)`;
+                    ctx.shadowBlur = 28;
+
+                    // Body circle
+                    ctx.beginPath();
+                    ctx.arc(seg.x, seg.y, Math.max(radius, 4), 0, Math.PI * 2);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+
+                    // Inner highlight
+                    ctx.shadowBlur = 0;
+                    const hl = ctx.createRadialGradient(
+                        seg.x - radius * 0.3, seg.y - radius * 0.3, 0,
+                        seg.x, seg.y, radius
+                    );
+                    hl.addColorStop(0, 'rgba(255,255,255,0.25)');
+                    hl.addColorStop(0.5, 'rgba(255,255,255,0.05)');
+                    hl.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.beginPath();
+                    ctx.arc(seg.x, seg.y, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = hl;
+                    ctx.fill();
+
+                    // Border
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath();
+                    ctx.arc(seg.x, seg.y, Math.max(radius, 4), 0, Math.PI * 2);
+                    ctx.strokeStyle = `hsla(${hue}, 80%, 70%, 0.15)`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                // ── Head ──
+                const head = worm[0];
+                ctx.shadowColor = '#2ee9ff66';
+                ctx.shadowBlur = 45;
+                const headGrd = ctx.createRadialGradient(
+                    head.x - 4, head.y - 4, 0,
+                    head.x, head.y, 14
+                );
+                headGrd.addColorStop(0, '#9cff68');
+                headGrd.addColorStop(0.5, '#2ee9ff');
+                headGrd.addColorStop(1, '#0088ff');
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, 12, 0, Math.PI * 2);
+                ctx.fillStyle = headGrd;
+                ctx.fill();
+
+                // Eyes
+                ctx.shadowBlur = 0;
+                const eyeOff = 5;
+                const eyeR = 4;
+                const lookX = direction.x * 3;
+                const lookY = direction.y * 3;
+                for (let side = -1; side <= 1; side += 2) {
+                    const ex = head.x + direction.y * side * eyeOff + lookX;
+                    const ey = head.y - direction.x * side * eyeOff + lookY;
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fff';
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(ex + lookX * 0.5, ey + lookY * 0.5, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = '#0b0e1a';
+                    ctx.fill();
+                }
+
+                // Head glow ring
+                ctx.shadowBlur = 60;
+                ctx.shadowColor = '#2ee9ff33';
+                ctx.beginPath();
+                ctx.arc(head.x, head.y, 16, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(46, 233, 255, 0.12)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // ── Vignette ──
+                const vig = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.15, w / 2, h / 2, Math.max(w, h) *
+                0.7);
+                vig.addColorStop(0, 'rgba(0,0,0,0)');
+                vig.addColorStop(1, 'rgba(0,0,0,0.25)');
+                ctx.fillStyle = vig;
+                ctx.fillRect(0, 0, w, h);
+
+                // ── FPS counter (debug, optional) ──
+                // ctx.fillStyle = 'rgba(255,255,255,0.08)';
+                // ctx.font = '12px monospace';
+                // ctx.fillText(`seg: ${worm.length}  food: ${foods.length}`, 12, 24);
+            }
+
+            // ─── Loop ───
+            function loop(time) {
+                const dt = Math.min((time - lastTime) / 1000, 0.05);
+                lastTime = time;
+
+                accumulator += dt;
+                while (accumulator >= STEP) {
+                    update(STEP);
+                    accumulator -= STEP;
+                }
+
+                render();
+                requestAnimationFrame(loop);
+            }
+
+            // ─── Input Events ───
+
+            // Keyboard
+            document.addEventListener('keydown', (e) => {
+                keys[e.code] = true;
+                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+                    e.preventDefault();
+                }
+                if (e.code === 'KeyR') {
+                    if (state === STATE.GAMEOVER) restartGame();
+                }
+            });
+            document.addEventListener('keyup', (e) => {
+                keys[e.code] = false;
+            });
+
+            // Mouse
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = logicalW() / rect.width;
+                const scaleY = logicalH() / rect.height;
+                mouseX = (e.clientX - rect.left) * scaleX;
+                mouseY = (e.clientY - rect.top) * scaleY;
+                mouseInside = true;
+            });
+            canvas.addEventListener('mouseleave', () => {
+                mouseInside = false;
+            });
+
+            // Touch Pad
+            let touchId = null;
+
+            function handleTouchStart(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                if (!touch) return;
+                touchId = touch.identifier;
+                const rect = touchPad.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const dx = touch.clientX - cx;
+                const dy = touch.clientY - cy;
+                const maxR = rect.width / 2 - 20;
+                const mag = Math.hypot(dx, dy);
+                const clamped = Math.min(mag, maxR);
+                const angle = Math.atan2(dy, dx);
+                const px = Math.cos(angle) * clamped;
+                const py = Math.sin(angle) * clamped;
+                touchKnob.style.transform = `translate(calc(-50% + ${px}px), calc(-50% + ${py}px))`;
+                touchKnob.classList.add('active');
+                touchActive = true;
+                touchDir.x = dx / maxR;
+                touchDir.y = dy / maxR;
+                const lim = 1;
+                touchDir.x = Math.max(-lim, Math.min(lim, touchDir.x));
+                touchDir.y = Math.max(-lim, Math.min(lim, touchDir.y));
+                if (mag < 8) { touchDir.x = 0;
+                    touchDir.y = 0;
+                    touchActive = false; }
+            }
+
+            function handleTouchMove(e) {
+                e.preventDefault();
+                let touch = null;
+                for (const t of e.touches) {
+                    if (t.identifier === touchId) { touch = t; break; }
+                }
+                if (!touch) {
+                    // fallback: use first touch
+                    touch = e.touches[0];
+                    if (!touch) return;
+                    touchId = touch.identifier;
+                }
+                const rect = touchPad.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const dx = touch.clientX - cx;
+                const dy = touch.clientY - cy;
+                const maxR = rect.width / 2 - 20;
+                const mag = Math.hypot(dx, dy);
+                const clamped = Math.min(mag, maxR);
+                const angle = Math.atan2(dy, dx);
+                const px = Math.cos(angle) * clamped;
+                const py = Math.sin(angle) * clamped;
+                touchKnob.style.transform = `translate(calc(-50% + ${px}px), calc(-50% + ${py}px))`;
+                touchKnob.classList.add('active');
+                touchActive = true;
+                touchDir.x = dx / maxR;
+                touchDir.y = dy / maxR;
+                const lim = 1;
+                touchDir.x = Math.max(-lim, Math.min(lim, touchDir.x));
+                touchDir.y = Math.max(-lim, Math.min(lim, touchDir.y));
+                if (mag < 6) { touchDir.x = 0;
+                    touchDir.y = 0;
+                    touchActive = false; }
+            }
+
+            function handleTouchEnd(e) {
+                e.preventDefault();
+                touchId = null;
+                touchActive = false;
+                touchDir.x = 0;
+                touchDir.y = 0;
+                touchKnob.style.transform = 'translate(-50%, -50%)';
+                touchKnob.classList.remove('active');
+            }
+
+            touchPad.addEventListener('touchstart', handleTouchStart, { passive: false });
+            touchPad.addEventListener('touchmove', handleTouchMove, { passive: false });
+            touchPad.addEventListener('touchend', handleTouchEnd, { passive: false });
+            touchPad.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+            // ─── Restart ───
+            function restartGame() {
+                initGame();
+            }
+
+            restartBtn.addEventListener('click', restartGame);
+
+            // ─── Start ───
+            initGame();
+            lastTime = performance.now();
+            requestAnimationFrame(loop);
+
+            // ─── Handle resize ───
+            window.addEventListener('resize', () => {
+                resize();
+                // reposition worm if needed
+                if (worm.length > 0) {
+                    const w = logicalW(),
+                        h = logicalH();
+                    const cx = w / 2,
+                        cy = h / 2;
+                    // if worm is way out of bounds, reset position
+                    if (worm[0].x < -100 || worm[0].x > w + 100 || worm[0].y < -100 || worm[0].y > h + 100) {
+                        const dx = cx - worm[0].x;
+                        const dy = cy - worm[0].y;
+                        for (const seg of worm) {
+                            seg.x += dx;
+                            seg.y += dy;
+                        }
+                    }
+                }
+            });
+
+            // ─── Expose for debugging ───
+            window.__worm = {
+                worm,
+                foods,
+                totalEaten,
+                wormLength,
+                state,
+                restart: restartGame,
+            };
+
+            console.log('🐛 Wormzilla.io – Single-player mode loaded!');
+            console.log('🎮 Controls: Arrow keys / WASD / Mouse / Touch');
+            console.log('🔄 Press R to restart after game over');
+
+        })();
+    </script>
+</body>
+</html>
